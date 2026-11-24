@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Judo Data — Base judo</title>
+<style>
+:root{--bg:#070b16;--card:rgba(255,255,255,.06);--border:rgba(120,180,255,.18);--accent:#38bdf8;--accent2:#a78bfa;--ok:#34d399;--warn:#fbbf24;--text:#eaf2ff;--muted:#9fb0c9}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 500px at 10% -10%,rgba(56,189,248,.18),transparent),radial-gradient(800px 500px at 100% 0%,rgba(167,139,250,.15),transparent),var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding-bottom:90px}
+header{padding:18px 16px 8px}h1{margin:0;font-size:1.35rem}p.sub{margin:4px 0 0;color:var(--muted);font-size:.85rem}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:rgba(8,14,26,.95);border-top:1px solid var(--border);backdrop-filter:blur(18px);z-index:50}
+nav button{flex:1;background:none;border:0;color:var(--muted);padding:12px 4px;font-size:.72rem;font-weight:700}
+nav button.active{color:var(--accent)}
+main{padding:12px 14px}.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:14px;margin-bottom:12px;backdrop-filter:blur(16px)}
+.label{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+h2{font-size:1.05rem;margin:4px 0 10px}input,select,textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);border-radius:14px;padding:11px 12px;font-size:15px}textarea{min-height:70px;resize:vertical}
+button.primary{border:0;border-radius:14px;padding:11px 14px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#04121f}button.ghost{background:rgba(255,255,255,.07);color:var(--text);border:1px solid var(--border);border-radius:14px;padding:10px 12px;font-weight:700}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pill{display:inline-block;padding:5px 10px;border-radius:999px;font-size:.72rem;border:1px solid var(--border);color:var(--muted)}.pill.ok{color:var(--ok);border-color:rgba(52,211,153,.4)}.pill.warn{color:var(--warn);border-color:rgba(251,191,36,.4)}
+.item{border:1px solid var(--border);border-radius:16px;padding:10px;margin-bottom:8px;background:rgba(255,255,255,.04)}
+.item strong{display:block}.small{font-size:.8rem;color:var(--muted)}
+canvas{width:100%;max-width:330px;display:block;margin:8px auto}
+.slider{display:grid;grid-template-columns:110px 1fr 40px;gap:8px;align-items:center;font-size:.8rem;color:var(--muted);margin-bottom:6px}input[type=range]{width:100%;accent-color:var(--accent)}
+.hidden{display:none}.msg{padding:10px;border-radius:14px;background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.3);margin-bottom:8px;font-size:.9rem}
+</style>
+</head>
+<body>
+<style>
+#jp-banner{padding:10px 16px;background:#14263d;color:#fff;font:14px system-ui;display:flex;gap:12px;align-items:center;flex-wrap:wrap;position:relative;z-index:100}#jp-banner button,#jp-dialog button{border:1px solid #679bc8;border-radius:10px;padding:10px;background:#203b59;color:#fff;cursor:pointer;font:inherit}#jp-dialog{background:#101c2e;color:#eef6ff;border:1px solid #679bc8;border-radius:18px;width:min(720px,94vw);max-height:90vh;overflow:auto;padding:20px;font:16px system-ui}#jp-dialog::backdrop{background:#000b}#jp-dialog label{display:block;margin:12px 0}#jp-dialog input{box-sizing:border-box;width:100%;padding:11px;border:1px solid #679bc8;border-radius:8px;background:#172b43;color:#fff;font:inherit}#jp-dialog button{margin:5px 3px}#jp-dialog button:disabled{opacity:.5;cursor:wait}#jp-dialog p{line-height:1.5}#jp-status{white-space:pre-wrap;padding:12px;border:1px solid #679bc8;margin:12px 0}#jp-list article{padding:12px;border-top:1px solid #456}#jp-dialog [hidden]{display:none!important}.jp-note{color:#c4d5e7;font-size:14px}
+</style>
+<div id="jp-banner"><button id="jp-open" type="button">Espace privé Supabase</button><span>Répertoire en ligne séparé — les autres fonctions restent locales.</span></div>
+<dialog id="jp-dialog" aria-labelledby="jp-title">
+<button id="jp-close" type="button" style="float:right">Fermer</button><h2 id="jp-title">Mon répertoire privé en ligne</h2>
+<p class="jp-note">Première étape de connexion. Seules les fiches de ce répertoire sont partagées entre vos appareils et vos deux applications via Supabase. Les fiches locales, notes tactiques, radars, combats, compétitions, profil et Coach IA ne sont PAS synchronisés par ce module. Les données locales restent communes aux personnes utilisant ce même navigateur.</p>
+<div id="jp-status" role="status" aria-live="polite">Non connecté. Aucun envoi automatique de données locales.</div>
+<form id="jp-login-form">
+<label>URL du projet<input id="jp-url" type="url" placeholder="https://votre-projet.supabase.co" required></label>
+<label>Clé publique uniquement<input id="jp-key" placeholder="sb_publishable_…" autocomplete="off" required></label>
+<label>E-mail du compte créé dans Authentication → Users<input id="jp-email" type="email" autocomplete="username" required></label>
+<label>Mot de passe de ce compte<input id="jp-password" type="password" autocomplete="current-password" required></label>
+<p class="jp-note">L’URL et la clé publique sont mémorisées sur cet appareil. La session reste en mémoire : reconnectez-vous après un rechargement. N’utilisez jamais une clé sb_secret_ ou service_role.</p>
+<button type="submit">Se connecter</button>
+</form>
+<section id="jp-connected" hidden>
+<p id="jp-account"></p><button id="jp-refresh" type="button">Actualiser le répertoire</button><button id="jp-signout" type="button">Se déconnecter</button>
+<h3>Ajouter une fiche en ligne</h3>
+<form id="jp-add-form"><label>Prénom<input id="jp-first" maxlength="120"></label><label>Nom<input id="jp-last" maxlength="120" required></label><label>Club<input id="jp-club" maxlength="200"></label><button type="submit">Enregistrer dans Supabase</button></form>
+<p class="jp-note">Cette action crée une nouvelle fiche dans votre compte. Aucun import automatique depuis les données locales.</p>
+<h3>Mes fiches en ligne</h3><p class="jp-note">Les 100 fiches les plus récentes. Après une modification sur un autre appareil, cliquez sur Actualiser.</p><div id="jp-list"></div>
+</section>
+</dialog>
+<script>
+(function(){'use strict';
+ const by=id=>document.getElementById('jp-'+id);
+ const cfgKey='judo_private_public_config_v1';
+ let cfg=null,access='',user=null,epoch=0,busy=false;
+ function status(t){by('status').textContent=t;}
+ function clearSession(){epoch++;access='';user=null;by('connected').hidden=true;by('login-form').hidden=false;by('account').textContent='';by('list').replaceChildren();by('password').value='';by('add-form').reset();}
+ try{const c=JSON.parse(localStorage.getItem(cfgKey)||'null');if(c){by('url').value=c.url||'';by('key').value=String(c.key||'').startsWith('sb_publishable_')?c.key:'';}}catch(e){}
+ by('open').onclick=()=>by('dialog').showModal();by('close').onclick=()=>by('dialog').close();
+ function config(){const u=new URL(by('url').value.trim());if(u.protocol!=='https:'||!u.hostname.endsWith('.supabase.co')||u.username||u.password||u.port)throw Error('Utilisez l’URL HTTPS de votre projet Supabase.');const k=by('key').value.trim();if(!k.startsWith('sb_publishable_'))throw Error('Seule une clé sb_publishable_ est autorisée.');by('url').value=u.origin;return {url:u.origin,key:k};}
+ async function req(path,options={},logged=true){
+  if(!cfg)throw Error('Configuration absente.');if(logged&&!access)throw Error('Connectez-vous d’abord.');const e=epoch;
+  const r=await fetch(cfg.url+path,{...options,headers:{apikey:cfg.key,...(logged?{Authorization:'Bearer '+access}:{}),'Content-Type':'application/json',...(options.headers||{})},credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer'});
+  const text=await r.text();let d=null;try{d=text?JSON.parse(text):null;}catch(e){}
+  if(e!==epoch)throw Error('Session modifiée : reconnectez-vous.');
+  if(!r.ok){if(r.status===401&&logged){clearSession();throw Error('Session expirée ou refusée. Reconnectez-vous.');}throw Error('HTTP '+r.status+' — '+(d?.error_code||d?.code||'')+' '+(d?.msg||d?.message||d?.error_description||d?.error||'Requête refusée'));}return d;
+ }
+ async function action(fn){if(busy)return;busy=true;by('dialog').querySelectorAll('button').forEach(b=>{if(b.id!=='jp-close')b.disabled=true;});try{await fn();}catch(e){status('ÉCHEC : '+e.message);}finally{busy=false;by('dialog').querySelectorAll('button').forEach(b=>b.disabled=false);}}
+ async function load(){
+  const rows=await req('/rest/v1/judokas?select=id,first_name,last_name,club,owner_id,created_at&order=created_at.desc&limit=100');
+  if(!Array.isArray(rows))throw Error('Réponse inattendue.');
+  if(rows.some(j=>j.owner_id!==user.id)){by('list').replaceChildren();throw Error('Alerte : isolation incorrecte, aucune fiche affichée.');}
+  by('list').replaceChildren();
+  for(const j of rows){const card=document.createElement('article'),title=document.createElement('strong'),club=document.createElement('p'),del=document.createElement('button');title.textContent=[j.first_name,j.last_name].filter(Boolean).join(' ');club.textContent=j.club||'Club non renseigné';del.type='button';del.textContent='Supprimer cette fiche';del.onclick=()=>action(async()=>{
+   if(!confirm('Supprimer définitivement cette fiche ET les données liées supprimées en cascade par la base ?'))return;
+   const result=await req('/rest/v1/judokas?id=eq.'+encodeURIComponent(j.id)+'&owner_id=eq.'+encodeURIComponent(user.id)+'&select=id',{method:'DELETE',headers:{Prefer:'return=representation'}});
+   if(!result?.length)throw Error('Aucune suppression confirmée. Actualisez la liste.');await load();status('Fiche supprimée. Répertoire actualisé.');
+  });card.append(title,club,del);by('list').append(card);}
+  if(!rows.length)by('list').textContent='Aucune fiche en ligne pour ce compte.';
+  status('Connexion active. '+rows.length+' fiche(s) chargée(s), au maximum 100. Aucune donnée locale importée.');
+ }
+ by('login-form').onsubmit=e=>{e.preventDefault();const password=by('password').value;by('password').value='';action(async()=>{
+  const c=config();clearSession();cfg=c;status('Connexion en cours…');
+  const d=await req('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email:by('email').value.trim(),password})},false);
+  if(!d?.access_token||!d?.user?.id)throw Error('Réponse de connexion incomplète.');access=d.access_token;user=d.user;
+  try{localStorage.setItem(cfgKey,JSON.stringify(cfg));}catch(e){}
+  by('login-form').hidden=true;by('connected').hidden=false;by('account').textContent='Connecté : '+(user.email||'compte utilisateur');status('Connexion réussie. Chargement du répertoire…');await load();
+ });};
+ by('refresh').onclick=()=>action(load);
+ by('add-form').onsubmit=e=>{e.preventDefault();action(async()=>{
+  if(!user)throw Error('Connectez-vous d’abord.');const last=by('last').value.trim();if(!last)throw Error('Nom obligatoire.');
+  const record={first_name:by('first').value.trim(),last_name:last,club:by('club').value.trim(),owner_id:user.id};
+  if(!confirm('Créer cette fiche dans votre espace privé Supabase ?'))return;
+  const rows=await req('/rest/v1/judokas?select=id,owner_id',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(record)});
+  if(!rows?.length||rows[0].owner_id!==user.id)throw Error('Création non confirmée. Actualisez avant de réessayer.');by('add-form').reset();status('Fiche créée.');await load();
+ });};
+ by('signout').onclick=()=>action(async()=>{let failed=false;try{await req('/auth/v1/logout',{method:'POST'});}catch(e){failed=true;}finally{clearSession();}status(failed?'Session effacée dans cette page. Révocation serveur non confirmée.':'Déconnecté. Les fiches en ligne ne sont plus affichées.');});
+})();
+</script>
+
+<header><h1>Judo Data</h1><p class="sub">Base judo — judokas, combats, palmarès, analyse</p></header>
+<main>
+<section id="view-search">
+ <div class="card"><div class="label">Recherche</div><h2>Rechercher un judoka</h2>
+ <div class="row"><input id="q" placeholder="Nom, prénom, club…"><select id="fGender"><option value="">Tous</option><option value="male">Masculin</option><option value="female">Féminin</option></select><select id="fCat"><option value="">Toutes catégories</option><option>-48 kg</option><option>-52 kg</option><option>-57 kg</option><option>-60 kg</option><option>-66 kg</option><option>-73 kg</option><option>-81 kg</option><option>-90 kg</option><option>-100 kg</option><option>+100 kg</option></select></div>
+ <button class="primary" id="search" style="margin-top:10px">Rechercher</button>
+ <div id="results" style="margin-top:12px"></div></div>
+ <div class="card"><div class="label">Statistiques</div><div id="stats"></div></div>
+</section>
+
+<section id="view-judokas" class="hidden">
+ <div class="card"><div class="label">Judokas</div><h2>Ajouter un judoka</h2>
+ <div class="row"><input id="jFirst" placeholder="Prénom"><input id="jLast" placeholder="Nom"><select id="jGender"><option value="male">Masculin</option><option value="female">Féminin</option></select><input id="jCountry" placeholder="Pays"><input id="jClub" placeholder="Club"><select id="jCat"><option>-48 kg</option><option>-52 kg</option><option>-57 kg</option><option>-60 kg</option><option>-66 kg</option><option>-73 kg</option><option>-81 kg</option><option>-90 kg</option><option>-100 kg</option><option>+100 kg</option></select></div>
+ <button class="primary" id="addJudoka" style="margin-top:10px">Ajouter</button></div>
+ <div class="card"><div class="label">Liste</div><div id="judokaList"></div></div>
+</section>
+
+<section id="view-fights" class="hidden">
+ <div class="card"><div class="label">Combats</div><h2>Ajouter un combat</h2>
+ <div class="row"><select id="fJudoka"></select><input id="fOpponent" placeholder="Adversaire"><input id="fDate" type="date"><input id="fComp" placeholder="Compétition"></div>
+ <div class="row" style="margin-top:8px"><select id="fResult"><option value="victory">Victoire</option><option value="defeat">Défaite</option><option value="draw">Nul</option></select><select id="fScore"><option value="">Score</option><option>Ippon</option><option>Waza-ari</option><option>Yuko</option><option>Pénalités</option><option>Décision</option></select><input id="fPen" type="number" min="0" value="0" placeholder="Pénalités"><input id="fVideo" placeholder="Lien vidéo"></div>
+ <button class="primary" id="addFight" style="margin-top:10px">Enregistrer le combat</button></div>
+ <div class="card"><div class="label">Historique</div><div id="fightList"></div></div>
+</section>
+
+<section id="view-analysis" class="hidden">
+ <div class="card"><div class="label">Analyse</div><h2>Profil technique</h2>
+ <select id="aJudoka"></select>
+ <canvas id="radar" width="680" height="680"></canvas>
+ <div id="sliders"></div>
+ <div style="display:flex;justify-content:space-between;margin-top:8px"><span class="label">Score global</span><strong id="global" style="color:var(--accent);font-size:1.3rem">—</strong></div>
+ <div class="row2" style="margin-top:10px"><div><div class="label">Forces</div><ul id="strengths" style="margin:6px 0 0;padding-left:18px"></ul></div><div><div class="label">Faiblesses</div><ul id="weaknesses" style="margin:6px 0 0;padding-left:18px"></ul></div></div>
+ <button class="primary" id="saveRadar" style="margin-top:12px">Enregistrer le profil</button>
+ <button class="ghost" id="makeReport" style="margin-top:8px">Générer le rapport</button>
+ <div id="report" class="card hidden" style="margin-top:12px"></div></div>
+ <div class="card"><div class="label">Palmarès</div><div id="palmares"></div></div>
+</section>
+
+<section id="view-settings" class="hidden">
+ <div class="card"><div class="label">Connexion</div><h2>Ancienne API Worker (non utilisée par l’espace privé)</h2><p class="small">Pour Supabase, utilisez le bouton « Espace privé Supabase » en haut. Ne configurez pas un Worker sans authentification.</p>
+ <input id="apiUrl" placeholder="https://judo-data-api.votre-nom.workers.dev">
+ <button class="primary" id="saveApi" style="margin-top:10px">Enregistrer</button>
+ <button class="ghost" id="testApi" style="margin-top:8px">Tester la connexion</button>
+ <div id="apiStatus" style="margin-top:10px"></div></div>
+ <div class="card"><div class="label">Données</div><h2>Sauvegarde</h2>
+ <button class="primary" id="exportData">Exporter JSON</button>
+ <button class="ghost" id="importData" style="margin-top:8px">Importer JSON</button>
+ <input type="file" id="fileInput" accept=".json" class="hidden">
+ <p class="small" style="margin-top:10px">Les vidéos ne sont jamais stockées. Seuls les liens, résultats, analyses et observations sont conservés.</p></div>
+</section>
+</main>
+
+<nav>
+<button data-view="search" class="active">Recherche</button>
+<button data-view="judokas">Judokas</button>
+<button data-view="fights">Combats</button>
+<button data-view="analysis">Analyse</button>
+<button data-view="settings">Réglages</button>
+</nav>
+
+<script>
+const KEY='judoData_v1';let DB=JSON.parse(localStorage.getItem(KEY)||'{"judokas":[],"fights":[],"radars":{}}');
+const save=()=>localStorage.setItem(KEY,JSON.stringify(DB));const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['search','judokas','fights','analysis','settings'].forEach(v=>$('view-'+v).classList.add('hidden'));$('view-'+b.dataset.view).classList.remove('hidden');render()});
+function render(){renderStats();renderJudokas();renderFights();renderAnalysis();$('apiUrl').value=localStorage.getItem('judoData_api')||''}
+function renderStats(){const f=DB.fights;const w=f.filter(x=>x.result==='victory').length;const ip=f.filter(x=>x.score==='Ippon').length;$('stats').innerHTML=`<div class="row"><div><span class="pill">${DB.judokas.length} judokas</span></div><div><span class="pill">${f.length} combats</span></div><div><span class="pill ok">${w} victoires</span></div><div><span class="pill">${ip} ippons</span></div></div>`}
+function renderJudokas(){$('judokaList').innerHTML=DB.judokas.length?DB.judokas.map((j,i)=>`<div class="item"><strong>${esc(j.first_name||'')} ${esc(j.last_name)}</strong><div class="small">${esc(j.club||'—')} • ${esc(j.country||'—')} • ${esc(j.weight_category||'—')}</div><button class="ghost" data-open="${i}" style="margin-top:8px">Ouvrir la fiche</button></div>`).join(''):'<div class="small">Aucun judoka.</div>';document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{localStorage.setItem('judoData_selected',b.dataset.open);document.querySelector('[data-view="analysis"]').click()});const s=$('fJudoka');s.innerHTML=DB.judokas.map((j,i)=>`<option value="${i}">${esc(j.first_name||'')} ${esc(j.last_name)}</option>`).join('');const a=$('aJudoka');a.innerHTML=DB.judokas.map((j,i)=>`<option value="${i}">${esc(j.first_name||'')} ${esc(j.last_name)}</option>`).join('')}
+function renderFights(){$('fightList').innerHTML=DB.fights.length?DB.fights.map(f=>{const j=DB.judokas[f.judoka_id]||{};return `<div class="item"><strong>${esc(j.first_name||'')} ${esc(j.last_name)} — ${esc(f.result)}</strong><div class="small">${esc(f.date||'—')} • ${esc(f.competition||'—')} • ${esc(f.opponent||'—')} • ${esc(f.score||'—')}</div>${f.video_url?`<a href="${esc(f.video_url)}" target="_blank" rel="noopener" class="small">Voir la vidéo</a>`:''}</div>`}).join(''):'<div class="small">Aucun combat.</div>'}
+$('addJudoka').onclick=()=>{const last=$('jLast').value.trim();if(!last)return alert('Nom obligatoire');DB.judokas.push({first_name:$('jFirst').value,last_name:last,gender:$('jGender').value,country:$('jCountry').value,club:$('jClub').value,weight_category:$('jCat').value});save();['jFirst','jLast','jCountry','jClub'].forEach(i=>$(i).value='');render()};
+$('addFight').onclick=()=>{const ji=Number($('fJudoka').value);if(isNaN(ji))return alert('Ajoutez un judoka');DB.fights.push({judoka_id:ji,opponent:$('fOpponent').value,date:$('fDate').value,competition:$('fComp').value,result:$('fResult').value,score:$('fScore').value,penalties:Number($('fPen').value||0),video_url:$('fVideo').value,video_stored:false,analysis_status:'manual'});save();['fOpponent','fDate','fComp','fVideo'].forEach(i=>$(i).value='');render()};
+const AXES=[['kumikata','Kumi-kata'],['newaza','Ne-waza'],['attack','Attaque'],['counter','Contre'],['movement','Déplacement'],['power','Puissance'],['endurance','Endurance'],['consistency','Régularité']];
+function currentRadar(){const i=Number($('aJudoka').value||0);DB.radars[i]=DB.radars[i]||{kumikata:50,newaza:50,attack:50,counter:50,movement:50,power:50,endurance:50,consistency:50};return DB.radars[i]}
+function renderAnalysis(){if(!DB.judokas.length){$('sliders').innerHTML='<div class="small">Ajoutez un judoka.</div>';return}const r=currentRadar();$('sliders').innerHTML=AXES.map(([k,l])=>`<div class="slider"><span>${l}</span><input type="range" min="0" max="100" value="${r[k]}" data-axis="${k}"><span data-val="${k}">${r[k]}</span></div>`).join('');$('sliders').querySelectorAll('input').forEach(inp=>inp.oninput=()=>{r[inp.dataset.axis]=+inp.value;document.querySelector(`[data-val="${inp.dataset.axis}"]`).textContent=inp.value;draw(r);updateInsights(r)});draw(r);updateInsights(r);renderPalmares()}
+function draw(v){const c=$('radar'),x=c.getContext('2d'),s=c.width,cx=s/2,cy=s/2,rad=s/2-95;x.clearRect(0,0,s,s);x.strokeStyle='rgba(120,180,255,.18)';x.lineWidth=2;for(let l=1;l<=4;l++){x.beginPath();AXES.forEach((_,i)=>{const a=Math.PI*2*i/AXES.length-Math.PI/2,rr=rad*l/4,px=cx+Math.cos(a)*rr,py=cy+Math.sin(a)*rr;i?x.lineTo(px,py):x.moveTo(px,py)});x.closePath();x.stroke()}AXES.forEach(([k,l],i)=>{const a=Math.PI*2*i/AXES.length-Math.PI/2;x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+Math.cos(a)*rad,cy+Math.sin(a)*rad);x.stroke();x.fillStyle='#9fb0c9';x.font='600 24px system-ui';x.textAlign='center';x.textBaseline='middle';x.fillText(l,cx+Math.cos(a)*(rad+42),cy+Math.sin(a)*(rad+42))});x.beginPath();AXES.forEach(([k],i)=>{const a=Math.PI*2*i/AXES.length-Math.PI/2,rr=rad*(v[k]||0)/100,px=cx+Math.cos(a)*rr,py=cy+Math.sin(a)*rr;i?x.lineTo(px,py):x.moveTo(px,py)});x.closePath();x.fillStyle='rgba(56,189,248,.22)';x.fill();x.strokeStyle='#38bdf8';x.lineWidth=4;x.stroke()}
+function updateInsights(v){const avg=Math.round(AXES.reduce((s,[k])=>s+(v[k]||0),0)/AXES.length);$('global').textContent=avg+'/100';const sorted=[...AXES].sort((a,b)=>(v[b[0]]||0)-(v[a[0]]||0));$('strengths').innerHTML=sorted.slice(0,3).map(([k,l])=>`<li>${l} — ${v[k]}/100</li>`).join('');$('weaknesses').innerHTML=sorted.slice(-3).reverse().map(([k,l])=>`<li>${l} — ${v[k]}/100</li>`).join('')}
+$('saveRadar').onclick=()=>{save();alert('Profil enregistré.')};
+$('makeReport').onclick=()=>{const i=Number($('aJudoka').value||0),j=DB.judokas[i],r=currentRadar(),fights=DB.fights.filter(f=>f.judoka_id===i);const wins=fights.filter(f=>f.result==='victory').length,ippons=fights.filter(f=>f.score==='Ippon').length;const tips=[];if(r.kumikata>=75&&r.counter<=50)tips.push('Évitez le duel de grip : décalez, provoquez une fausse attaque, puis attaquez en mouvement.');if(r.attack>=75)tips.push('Prenez l’initiative tôt : premier grip avant 10 secondes.');if(r.newaza>=75)tips.push('Attention au sol : évitez les entrées hasardeuses.');if(r.endurance<=55)tips.push('Mobilisez-le et augmentez le rythme après 90 secondes.');if(r.power>=75)tips.push('Évitez la confrontation frontale : privilégiez déplacement et décalage.');if(!tips.length)tips.push('Approche équilibrée : sécurisez le grip, créez du mouvement, attaquez dès l’ouverture.');$('report').classList.remove('hidden');$('report').innerHTML=`<div class="label">Rapport — ${esc(j?.last_name||'Judoka')}</div><p>${fights.length} combat(s) • ${wins} victoire(s) • ${ippons} ippon(s)</p><ul style="padding-left:18px;line-height:1.5">${tips.map(t=>`<li>${t}</li>`).join('')}</ul>`};
+function renderPalmares(){const i=Number($('aJudoka').value||0);const fights=DB.fights.filter(f=>f.judoka_id===i);const medals=fights.filter(f=>f.result==='victory');$('palmares').innerHTML=`<div class="item"><strong>${medals.length} victoire(s)</strong><div class="small">${fights.length} combat(s) enregistré(s)</div></div>`+fights.map(f=>`<div class="item"><strong>${esc(f.competition||'Compétition')}</strong><div class="small">${esc(f.date||'—')} • ${esc(f.result)} • ${esc(f.score||'—')}</div></div>`).join('')}
+$('search').onclick=()=>{const q=$('q').value.toLowerCase(),g=$('fGender').value,c=$('fCat').value;const res=DB.judokas.filter(j=>(!q||`${j.first_name||''} ${j.last_name} ${j.club||''}`.toLowerCase().includes(q))&&(!g||j.gender===g)&&(!c||j.weight_category===c));$('results').innerHTML=res.length?res.map((j,i)=>`<div class="item"><strong>${esc(j.first_name||'')} ${esc(j.last_name)}</strong><div class="small">${esc(j.club||'—')} • ${esc(j.weight_category||'—')}</div><button class="ghost" data-open="${DB.judokas.indexOf(j)}" style="margin-top:8px">Ouvrir</button></div>`).join(''):'<div class="small">Aucun résultat.</div>';document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{localStorage.setItem('judoData_selected',b.dataset.open);document.querySelector('[data-view="analysis"]').click()})};
+$('saveApi').onclick=()=>{localStorage.setItem('judoData_api',$('apiUrl').value.trim());alert('URL enregistrée.')};
+$('testApi').onclick=async()=>{const u=($('apiUrl').value||'').replace(/\/$/,'');if(!u)return alert('Ajoutez l’URL.');try{const r=await fetch(u+'/health');const d=await r.json();$('apiStatus').innerHTML=`<div class="msg">Connexion OK : ${esc(JSON.stringify(d))}</div>`}catch(e){$('apiStatus').innerHTML='<div class="msg">Connexion impossible. Vérifiez l’URL du Worker.</div>'}};
+$('exportData').onclick=()=>{const a=document.createElement('a');a.href='data:application/json,'+encodeURIComponent(JSON.stringify(DB,null,2));a.download='judo-data-sauvegarde.json';a.click()};
+$('importData').onclick=()=>$('fileInput').click();$('fileInput').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{DB=JSON.parse(r.result);save();render();alert('Données importées.')};r.readAsText(f)};
+render();
+</script>
+</body>
+</html>
