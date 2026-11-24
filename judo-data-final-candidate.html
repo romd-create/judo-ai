@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Judo Data — Version finale candidate</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:16px;background:#0b1220;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+h1{margin:0;font-size:20px}.sub{color:var(--muted);font-size:13px;margin-top:3px}
+main{max-width:1100px;margin:0 auto;padding:16px}
+nav{display:flex;gap:8px;overflow-x:auto;padding:10px 0}
+nav button{white-space:nowrap;background:var(--card);border:1px solid var(--line);color:var(--text);padding:9px 13px;border-radius:10px;cursor:pointer}
+nav button.active{background:var(--accent);border-color:var(--accent);color:#04202e;font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+h2{margin:0 0 12px;font-size:17px}h3{margin:18px 0 8px;font-size:15px}
+label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}
+input,select,textarea{width:100%;padding:9px;border-radius:9px;border:1px solid var(--line);background:#0b1220;color:var(--text)}
+textarea{min-height:70px;resize:vertical}
+button{font:inherit}.btn{background:var(--accent);border:0;color:#04202e;font-weight:700;padding:10px 14px;border-radius:10px;cursor:pointer}
+.btn.secondary{background:#334155;color:var(--text)}.btn.danger{background:var(--err);color:#fff}.btn.small{padding:6px 9px;font-size:12px}
+.row{display:grid;gap:10px}.row.two{grid-template-columns:1fr 1fr}.row.three{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:700px){.row.two,.row.three{grid-template-columns:1fr}}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.item{border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:9px;background:#0b1220}
+.item b{display:block}.muted{color:var(--muted);font-size:13px}
+.msg{padding:9px 11px;border-radius:9px;margin:10px 0;display:none}
+.msg.ok{display:block;background:rgba(34,197,94,.15);color:#86efac}.msg.err{display:block;background:rgba(239,68,68,.15);color:#fca5a5}
+.hidden{display:none!important}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px;border-bottom:1px solid var(--line);text-align:left}
+input[type=range]{accent-color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+<h1>Judo Data — Version finale candidate</h1>
+<div class="sub">Espace privé Supabase — judokas, compétitions, combats, techniques, palmarès et radars</div>
+</header>
+<main>
+<div id="setup" class="card hidden">
+<h2>Connexion à Supabase</h2>
+<p class="muted">Entrez l’URL de votre projet et la clé publique <b>anon</b>. Elles sont conservées uniquement dans ce navigateur. N’utilisez jamais une clé <code>service_role</code> ou <code>sb_secret_…</code>.</p>
+<label>URL du projet Supabase</label><input id="sbUrl" placeholder="https://xxxx.supabase.co">
+<label>Clé publique anon</label><input id="sbKey" type="password" placeholder="eyJ...">
+<div class="actions"><button class="btn" onclick="saveConfig()">Enregistrer et continuer</button></div>
+</div>
+
+<div id="auth" class="card hidden">
+<h2>Connexion</h2>
+<label>Email</label><input id="email" type="email">
+<label>Mot de passe</label><input id="password" type="password">
+<div class="actions">
+<button class="btn" onclick="signIn()">Se connecter</button>
+<button class="btn secondary" onclick="signUp()">Créer un compte</button>
+<button class="btn secondary" onclick="resetPassword()">Mot de passe oublié</button>
+<button class="btn secondary" onclick="signOut()">Se déconnecter</button>
+</div>
+<div id="authMsg" class="msg"></div>
+</div>
+
+<div id="app" class="hidden">
+<nav>
+<button data-view="judokas" class="active">Judokas</button>
+<button data-view="competitions">Compétitions</button>
+<button data-view="fights">Combats</button>
+<button data-view="techniques">Techniques</button>
+<button data-view="palmares">Palmarès</button>
+<button data-view="radars">Radars</button>
+</nav>
+
+<section id="view-judokas" class="card">
+<h2>Judokas privés</h2>
+<div class="row three">
+<div><label>Prénom</label><input id="jFirst"></div>
+<div><label>Nom *</label><input id="jLast"></div>
+<div><label>Genre</label><select id="jGender"><option value="">—</option><option value="male">Masculin</option><option value="female">Féminin</option></select></div>
+</div>
+<div class="row three">
+<div><label>Pays</label><input id="jCountry"></div>
+<div><label>Club</label><input id="jClub"></div>
+<div><label>Année de naissance</label><input id="jBirth" type="number"></div>
+</div>
+<div class="row two">
+<div><label>Catégorie de poids</label><input id="jWeight"></div>
+<div><label>Source</label><input id="jSource"></div>
+</div>
+<div class="actions"><button class="btn" onclick="saveJudoka()">Enregistrer</button><button class="btn secondary" onclick="clearJudokaForm()">Effacer</button></div>
+<div id="judokaMsg" class="msg"></div>
+<h3>Fiches</h3>
+<input id="jSearch" placeholder="Rechercher un nom, club ou pays" oninput="loadJudokas()">
+<div id="judokaList"></div>
+<div class="actions"><button class="btn secondary" onclick="changeJudokaPage(-1)">Page précédente</button><button class="btn secondary" onclick="changeJudokaPage(1)">Page suivante</button></div>
+</section>
+
+<section id="view-competitions" class="card hidden">
+<h2>Compétitions privées</h2>
+<div class="row two">
+<div><label>Nom *</label><input id="cName"></div>
+<div><label>Date</label><input id="cDate" type="date"></div>
+</div>
+<div class="row three">
+<div><label>Lieu</label><input id="cPlace"></div>
+<div><label>Niveau</label><input id="cLevel"></div>
+<div><label>Catégorie</label><input id="cCategory"></div>
+</div>
+<label>URL source</label><input id="cUrl">
+<div class="actions"><button class="btn" onclick="saveCompetition()">Enregistrer</button><button class="btn secondary" onclick="clearCompetitionForm()">Effacer</button></div>
+<div id="competitionMsg" class="msg"></div>
+<h3>Compétitions</h3><div id="competitionList"></div>
+</section>
+
+<section id="view-fights" class="card hidden">
+<h2>Combats</h2>
+<div class="row three">
+<div><label>Judoka</label><select id="fJudoka"></select></div>
+<div><label>Adversaire</label><select id="fOpponent"></select></div>
+<div><label>Compétition</label><select id="fCompetition"></select></div>
+</div>
+<div class="row three">
+<div><label>Date</label><input id="fDate" type="date"></div>
+<div><label>Résultat</label><input id="fResult" placeholder="Victoire, défaite…"></div>
+<div><label>Score</label><input id="fScore"></div>
+</div>
+<div class="row three">
+<div><label>Pénalités</label><input id="fPenalties" type="number" value="0"></div>
+<div><label>Durée (secondes)</label><input id="fDuration" type="number"></div>
+<div><label>Statut d’analyse</label><input id="fStatus" value="pending"></div>
+</div>
+<label>URL vidéo</label><input id="fVideo">
+<div class="actions"><button class="btn" onclick="saveFight()">Enregistrer</button><button class="btn secondary" onclick="clearFightForm()">Effacer</button></div>
+<div id="fightMsg" class="msg"></div>
+<h3>Combats</h3><div id="fightList"></div>
+</section>
+
+<section id="view-techniques" class="card hidden">
+<h2>Techniques</h2>
+<div class="row three">
+<div><label>Combat</label><select id="tFight"></select></div>
+<div><label>Judoka</label><select id="tJudoka"></select></div>
+<div><label>Temps</label><input id="tTimestamp" placeholder="02:35"></div>
+</div>
+<div class="row three">
+<div><label>Technique</label><input id="tName"></div>
+<div><label>Résultat</label><input id="tResult"></div>
+<div><label>Confiance</label><input id="tConfidence" type="number" min="0" max="100"></div>
+</div>
+<div class="row three">
+<div><label>Phase</label><input id="tPhase"></div>
+<div><label>Prise</label><input id="tGrip"></div>
+<div><label>Direction</label><input id="tDirection"></div>
+</div>
+<div class="actions"><button class="btn" onclick="saveTechnique()">Enregistrer</button><button class="btn secondary" onclick="clearTechniqueForm()">Effacer</button></div>
+<div id="techniqueMsg" class="msg"></div>
+<h3>Techniques</h3><div id="techniqueList"></div>
+</section>
+
+<section id="view-palmares" class="card hidden">
+<h2>Palmarès</h2>
+<div class="row three">
+<div><label>Judoka</label><select id="pJudoka"></select></div>
+<div><label>Compétition</label><select id="pCompetition"></select></div>
+<div><label>Année</label><input id="pYear" type="number"></div>
+</div>
+<div class="row three">
+<div><label>Catégorie</label><input id="pCategory"></div>
+<div><label>Rang</label><input id="pRank" type="number"></div>
+<div><label>Médaille</label><input id="pMedal" placeholder="Or, argent, bronze…"></div>
+</div>
+<div class="actions"><button class="btn" onclick="savePalmares()">Enregistrer</button><button class="btn secondary" onclick="clearPalmaresForm()">Effacer</button></div>
+<div id="palmaresMsg" class="msg"></div>
+<h3>Résultats</h3><div id="palmaresList"></div>
+</section>
+
+<section id="view-radars" class="card hidden">
+<h2>Profil radar</h2>
+<p class="muted">Un seul profil radar est autorisé par judoka. Sélectionnez un judoka : s’il possède déjà un profil, il sera modifié ; sinon, un profil sera créé.</p>
+<label>Judoka</label><select id="rJudoka" onchange="loadRadar()"></select>
+<div id="radarSliders"></div>
+<div class="actions"><button class="btn" onclick="saveRadar()">Enregistrer le radar</button></div>
+<div id="radarMsg" class="msg"></div>
+</section>
+</div>
+</main>
+
+<script>
+const TABLES=['judokas','competitions','fights','techniques','palmares','radar_profiles'];
+let sb=null,user=null,judokas=[],competitions=[],fights=[],judokaPage=0,judokaEditing=null,radarEditing=null;
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function show(id,on){$(id).classList.toggle('hidden',!on)}
+function msg(id,text,ok){const e=$(id);e.className='msg '+(ok?'ok':'err');e.textContent=text}
+function clearMsg(id){$(id).className='msg'}
+function val(id){return $(id).value.trim()}
+function num(id){const v=$(id).value.trim();return v===''?null:Number(v)}
+function saveConfig(){
+ const url=val('sbUrl'),key=val('sbKey');
+ if(!url||!key)return alert('URL et clé anon requises.');
+ localStorage.setItem('judoDataUrl',url);localStorage.setItem('judoDataKey',key);init();
+}
+function init(){
+ const url=localStorage.getItem('judoDataUrl'),key=localStorage.getItem('judoDataKey');
+ if(!url||!key){show('setup',true);return}
+ try{sb=supabase.createClient(url,key)}catch(e){show('setup',true);return}
+ sb.auth.getSession().then(({data})=>{user=data.session?.user||null;updateAuth()});
+ sb.auth.onAuthStateChange((_,session)=>{user=session?.user||null;updateAuth()});
+}
+async function updateAuth(){
+ show('setup',false);show('auth',!user);show('app',!!user);
+ if(user){await loadAll();}else{['judokaList','competitionList','fightList','techniqueList','palmaresList'].forEach(i=>$(i).innerHTML='')}
+}
+async function signIn(){clearMsg('authMsg');const{error}=await sb.auth.signInWithPassword({email:val('email'),password:val('password')});if(error)msg('authMsg',error.message,false)}
+async function signUp(){clearMsg('authMsg');const{error}=await sb.auth.signUp({email:val('email'),password:val('password')});if(error)return msg('authMsg',error.message,false);msg('authMsg','Compte créé. Vérifiez votre boîte mail si une confirmation est demandée.',true)}
+async function resetPassword(){clearMsg('authMsg');if(!val('email'))return msg('authMsg','Entrez votre email.',false);const{error}=await sb.auth.resetPasswordForEmail(val('email'));if(error)return msg('authMsg',error.message,false);msg('authMsg','Email de réinitialisation envoyé.',true)}
+async function signOut(){await sb.auth.signOut();user=null;updateAuth()}
+async function loadAll(){await Promise.all([loadJudokas(),loadCompetitions(),loadFights()]);fillSelects();await Promise.all([loadTechniques(),loadPalmares()]);buildRadarSliders();await loadRadar()}
+function fillSelects(){
+ const j=judokas.map(x=>`<option value="${x.id}">${esc((x.first_name||'')+' '+x.last_name)}</option>`).join('');
+ const c=competitions.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+ const f=fights.map(x=>`<option value="${x.id}">${esc(x.date||'Combat')} — ${esc(x.result||'')}</option>`).join('');
+ for(const id of['fJudoka','fOpponent','tJudoka','pJudoka','rJudoka'])$(id).innerHTML='<option value="">—</option>'+j;
+ $('fCompetition').innerHTML='<option value="">—</option>'+c;
+ $('pCompetition').innerHTML='<option value="">—</option>'+c;
+ $('tFight').innerHTML='<option value="">—</option>'+f;
+}
+async function loadJudokas(){
+ const q=val('jSearch');let r=sb.from('judokas').select('*').order('last_name').range(judokaPage*50,judokaPage*50+49);
+ if(q)r=r.or(`last_name.ilike.%${q}%,first_name.ilike.%${q}%,club.ilike.%${q}%,country.ilike.%${q}%`);
+ const{data,error}=await r;if(error)return msg('judokaMsg',error.message,false);judokas=data;
+ $('judokaList').innerHTML=data.length?data.map(x=>`<div class="item"><b>${esc([x.first_name,x.last_name].filter(Boolean).join(' '))}</b><div class="muted">${esc([x.club,x.country,x.weight_category,x.birth_year].filter(Boolean).join(' • '))||'—'}</div><div class="actions"><button class="btn small secondary" onclick='editJudoka(${JSON.stringify(x)})'>Modifier</button><button class="btn small danger" onclick="deleteJudoka('${x.id}')">Supprimer</button></div></div>`).join(''):'<p class="muted">Aucun judoka.</p>';
+}
+function changeJudokaPage(d){judokaPage=Math.max(0,judokaPage+d);loadJudokas()}
+function clearJudokaForm(){judokaEditing=null;['jFirst','jLast','jCountry','jClub','jBirth','jWeight','jSource'].forEach(i=>$(i).value='');$('jGender').value='';clearMsg('judokaMsg')}
+async function saveJudoka(){
+ const row={first_name:val('jFirst')||null,last_name:val('jLast'),gender:val('jGender')||null,country:val('jCountry')||null,club:val('jClub')||null,birth_year:num('jBirth'),weight_category:val('jWeight')||null,source_id:val('jSource')||null};
+ if(!row.last_name)return msg('judokaMsg','Le nom est obligatoire.',false);
+ const{error}=judokaEditing?await sb.from('judokas').update(row).eq('id',judokaEditing):await sb.from('judokas').insert(row);
+ if(error)return msg('judokaMsg',error.message,false);msg('judokaMsg','Judoka enregistré.',true);clearJudokaForm();await loadJudokas();fillSelects();await loadRadar();
+}
+function editJudoka(x){judokaEditing=x.id;$('jFirst').value=x.first_name||'';$('jLast').value=x.last_name||'';$('jGender').value=x.gender||'';$('jCountry').value=x.country||'';$('jClub').value=x.club||'';$('jBirth').value=x.birth_year??'';$('jWeight').value=x.weight_category||'';$('jSource').value=x.source_id||'';window.scrollTo({top:0,behavior:'smooth'})}
+async function deleteJudoka(id){
+ if(!confirm('Supprimer ce judoka ? Ses combats, techniques, résultats de palmarès et son radar seront également supprimés.'))return;
+ const{error}=await sb.from('judokas').delete().eq('id',id);if(error)return msg('judokaMsg',error.message,false);await loadAll();
+}
+async function loadCompetitions(){const{data,error}=await sb.from('competitions').select('*').order('date',{ascending:false});if(error)return msg('competitionMsg',error.message,false);competitions=data;$('competitionList').innerHTML=data.length?data.map(x=>`<div class="item"><b>${esc(x.name)}</b><div class="muted">${esc([x.date,x.place,x.level,x.category].filter(Boolean).join(' • '))||'—'}</div><div class="actions"><button class="btn small secondary" onclick='editCompetition(${JSON.stringify(x)})'>Modifier</button><button class="btn small danger" onclick="deleteRow('competitions','${x.id}','competitionMsg',loadCompetitions)">Supprimer</button></div></div>`).join(''):'<p class="muted">Aucune compétition.</p>'}
+function clearCompetitionForm(){['cName','cDate','cPlace','cLevel','cCategory','cUrl'].forEach(i=>$(i).value='');clearMsg('competitionMsg')}
+async function saveCompetition(){
+ const row={name:val('cName'),date:val('cDate')||null,place:val('cPlace')||null,level:val('cLevel')||null,category:val('cCategory')||null,source_url:val('cUrl')||null};
+ if(!row.name)return msg('competitionMsg','Le nom est obligatoire.',false);
+ const{error}=await sb.from('competitions').insert(row);if(error)return msg('competitionMsg',error.message,false);msg('competitionMsg','Compétition enregistrée.',true);clearCompetitionForm();await loadCompetitions();fillSelects();
+}
+function editCompetition(x){['cName','cDate','cPlace','cLevel','cCategory','cUrl'].forEach((id,i)=>$(id).value=x[['name','date','place','level','category','source_url'][i]]||'')}
+async function loadFights(){const{data,error}=await sb.from('fights').select('*,judoka:judokas!fights_judoka_id_fkey(first_name,last_name),opponent:judokas!fights_opponent_id_fkey(first_name,last_name),competition:competitions(name)').order('created_at',{ascending:false});if(error)return msg('fightMsg',error.message,false);fights=data;
+ $('fightList').innerHTML=data.length?data.map(x=>`<div class="item"><b>${esc(x.judoka?x.judoka.first_name+' '+x.judoka.last_name:'Judoka non défini')} — ${esc(x.result||'Résultat non renseigné')}</b><div class="muted">${esc([x.date,x.competition?.name,x.score,'Penalités : '+(x.penalties??0),x.duration?x.duration+' s':''].filter(Boolean).join(' • '))||'—'}</div><div class="actions"><button class="btn small secondary" onclick='editFight(${JSON.stringify(x)})'>Modifier</button><button class="btn small danger" onclick="deleteRow('fights','${x.id}','fightMsg',loadFights)">Supprimer</button></div></div>`).join(''):'<p class="muted">Aucun combat.</p>'}
+function clearFightForm(){['fDate','fResult','fScore','fPenalties','fDuration','fStatus','fVideo'].forEach(i=>$(i).value='');$('fPenalties').value='0';$('fStatus').value='pending';['fJudoka','fOpponent','fCompetition'].forEach(i=>$(i).value='');clearMsg('fightMsg')}
+async function saveFight(){
+ const row={judoka_id:val('fJudoka')||null,opponent_id:val('fOpponent')||null,competition_id:val('fCompetition')||null,date:val('fDate')||null,result:val('fResult')||null,score:val('fScore')||null,penalties:num('fPenalties')??0,duration:num('fDuration'),video_url:val('fVideo')||null,video_stored:false,analysis_status:val('fStatus')||'pending'};
+ const{error}=await sb.from('fights').insert(row);if(error)return msg('fightMsg',error.message,false);msg('fightMsg','Combat enregistré.',true);clearFightForm();await loadFights();fillSelects();await loadTechniques();
+}
+function editFight(x){['fDate','fResult','fScore','fPenalties','fDuration','fStatus','fVideo'].forEach((id,i)=>$(id).value=x[['date','result','score','penalties','duration','analysis_status','video_url'][i]]??'');['fJudoka','fOpponent','fCompetition'].forEach((id,i)=>$(id).value=x[['judoka_id','opponent_id','competition_id'][i]]||'')}
+async function loadTechniques(){const{data,error}=await sb.from('techniques').select('*,fight:fights(date,result),judoka:judokas(first_name,last_name)').order('created_at',{ascending:false});if(error)return msg('techniqueMsg',error.message,false);
+ $('techniqueList').innerHTML=data.length?data.map(x=>`<div class="item"><b>${esc(x.technique||'Technique')}</b><div class="muted">${esc([x.judoka?x.judoka.first_name+' '+x.judoka.last_name:'',x.fight?.date,x.timestamp,x.result,x.phase,x.grip,x.direction,x.confidence!=null?'Confiance : '+x.confidence:''].filter(Boolean).join(' • '))||'—'}</div><div class="actions"><button class="btn small secondary" onclick='editTechnique(${JSON.stringify(x)})'>Modifier</button><button class="btn small danger" onclick="deleteRow('techniques','${x.id}','techniqueMsg',loadTechniques)">Supprimer</button></div></div>`).join(''):'<p class="muted">Aucune technique.</p>'}
+function clearTechniqueForm(){['tTimestamp','tName','tResult','tConfidence','tPhase','tGrip','tDirection'].forEach(i=>$(i).value='');['tFight','tJudoka'].forEach(i=>$(i).value='');clearMsg('techniqueMsg')}
+async function saveTechnique(){
+ const row={fight_id:val('tFight')||null,judoka_id:val('tJudoka')||null,timestamp:val('tTimestamp')||null,technique:val('tName')||null,result:val('tResult')||null,confidence:num('tConfidence'),phase:val('tPhase')||null,grip:val('tGrip')||null,direction:val('tDirection')||null};
+ const{error}=await sb.from('techniques').insert(row);if(error)return msg('techniqueMsg',error.message,false);msg('techniqueMsg','Technique enregistrée.',true);clearTechniqueForm();await loadTechniques();
+}
+function editTechnique(x){['tTimestamp','tName','tResult','tConfidence','tPhase','tGrip','tDirection'].forEach((id,i)=>$(id).value=x[['timestamp','technique','result','confidence','phase','grip','direction'][i]]??'');['tFight','tJudoka'].forEach((id,i)=>$(id).value=x[['fight_id','judoka_id'][i]]||'')}
+async function loadPalmares(){const{data,error}=await sb.from('palmares').select('*,judoka:judokas(first_name,last_name),competition:competitions(name)').order('year',{ascending:false});if(error)return msg('palmaresMsg',error.message,false);
+ $('palmaresList').innerHTML=data.length?data.map(x=>`<div class="item"><b>${esc(x.judoka?x.judoka.first_name+' '+x.judoka.last_name:'Judoka non défini')} — ${esc(x.medal||x.category||'Résultat')}</b><div class="muted">${esc([x.year,x.competition?.name,'Rang : '+(x.rank??'—'),x.category].filter(Boolean).join(' • '))||'—'}</div><div class="actions"><button class="btn small secondary" onclick='editPalmares(${JSON.stringify(x)})'>Modifier</button><button class="btn small danger" onclick="deleteRow('palmares','${x.id}','palmaresMsg',loadPalmares)">Supprimer</button></div></div>`).join(''):'<p class="muted">Aucun résultat.</p>'}
+function clearPalmaresForm(){['pYear','pCategory','pRank','pMedal'].forEach(i=>$(i).value='');['pJudoka','pCompetition'].forEach(i=>$(i).value='');clearMsg('palmaresMsg')}
+async function savePalmares(){
+ const row={judoka_id:val('pJudoka')||null,competition_id:val('pCompetition')||null,year:num('pYear'),category:val('pCategory')||null,rank:num('pRank'),medal:val('pMedal')||null};
+ const{error}=await sb.from('palmares').insert(row);if(error)return msg('palmaresMsg',error.message,false);msg('palmaresMsg','Résultat enregistré.',true);clearPalmaresForm();await loadPalmares();
+}
+function editPalmares(x){['pYear','pCategory','pRank','pMedal'].forEach((id,i)=>$(id).value=x[['year','category','rank','medal'][i]]??'');['pJudoka','pCompetition'].forEach((id,i)=>$(id).value=x[['judoka_id','competition_id'][i]]||'')}
+const RADAR=[['kumikata','Kumikata'],['newaza','Ne-waza'],['attack','Attaque'],['counter','Contre-attaque'],['movement','Déplacements'],['power','Puissance'],['endurance','Endurance'],['consistency','Régularité']];
+function buildRadarSliders(){$('radarSliders').innerHTML=RADAR.map(([k,l])=>`<label>${l} : <span id="r_${k}_v">50</span></label><input type="range" id="r_${k}" min="0" max="100" value="50" oninput="$('r_${k}_v').textContent=this.value">`).join('')}
+async function loadRadar(){
+ radarEditing=null;const id=val('rJudoka');if(!id){RADAR.forEach(([k])=>{$('r_'+k).value=50;$('r_'+k+'_v').textContent='50'});return}
+ const{data,error}=await sb.from('radar_profiles').select('*').eq('judoka_id',id).maybeSingle();if(error)return msg('radarMsg',error.message,false);
+ if(data){radarEditing=data.id;RADAR.forEach(([k])=>{$('r_'+k).value=data[k]??50;$('r_'+k+'_v').textContent=data[k]??50});msg('radarMsg','Profil existant : vos modifications le mettront à jour.',true)}
+ else{RADAR.forEach(([k])=>{$('r_'+k).value=50;$('r_'+k+'_v').textContent='50'});clearMsg('radarMsg')}
+}
+async function saveRadar(){
+ const id=val('rJudoka');if(!id)return msg('radarMsg','Sélectionnez un judoka.',false);
+ const row={judoka_id:id};RADAR.forEach(([k])=>row[k]=Number($('r_'+k).value));
+ const{error}=radarEditing?await sb.from('radar_profiles').update(row).eq('id',radarEditing):await sb.from('radar_profiles').insert(row);
+ if(error)return msg('radarMsg',error.message,false);msg('radarMsg','Radar enregistré.',true);await loadRadar();
+}
+async function deleteRow(table,id,msgId,reload){
+ if(!confirm('Supprimer définitivement cette fiche ?'))return;
+ const{error}=await sb.from(table).delete().eq('id',id);if(error)return msg(msgId,error.message,false);await reload();fillSelects();
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+ ['judokas','competitions','fights','techniques','palmares','radars'].forEach(v=>show('view-'+v,v===b.dataset.view));
+});
+init();
+</script>
+</body>
+</html>
