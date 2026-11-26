@@ -4349,5 +4349,202 @@ $('v6ChatForm').onsubmit=e=>{e.preventDefault();const q=$('v6ChatInput').value.t
 })();
 </script>
 <!-- FIN V6 -->
+<!-- JUDO DATA : couche de données intégrée -->
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+const SUPABASE_URL = "https://qhjkdjinhmloggfynoyc.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7DTTrwZ4zhdZnjMRXyYxQQ_dJP-5vQK";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
+
+async function getCurrentUser() {
+  const { data } = await supabase.auth.getSession();
+  return data.session ? data.session.user : null;
+}
+async function signIn(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
+  return data.user;
+}
+async function signOut() {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw new Error(error.message);
+}
+function onAuthChange(callback) {
+  supabase.auth.onAuthStateChange((event, session) => callback(session ? session.user : null));
+}
+
+const JUDOKA_COLUMNS =
+  "id, owner_id, first_name, last_name, gender, country, club, birth_year, weight_category, source_id, created_at";
+
+async function requireUser() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) throw new Error("Vous devez être connecté.");
+  return data.user;
+}
+
+const judokasRepository = {
+  async list() {
+    await requireUser();
+    const { data, error } = await supabase.from("judokas").select(JUDOKA_COLUMNS).order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  async create(judoka) {
+    const user = await requireUser();
+    const { data, error } = await supabase.from("judokas").insert({
+      owner_id: user.id,
+      first_name: judoka.first_name,
+      last_name: judoka.last_name,
+      gender: judoka.gender || null,
+      country: judoka.country || null,
+      club: judoka.club || null,
+      birth_year: judoka.birth_year ? Number(judoka.birth_year) : null,
+      weight_category: judoka.weight_category || null
+    }).select(JUDOKA_COLUMNS).single();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  async update(id, changes) {
+    await requireUser();
+    const allowed = {};
+    for (const key of ["first_name", "last_name", "gender", "country", "club", "birth_year", "weight_category"]) {
+      if (key in changes) allowed[key] = changes[key] === "" ? null : changes[key];
+    }
+    if (allowed.birth_year != null) allowed.birth_year = Number(allowed.birth_year);
+    const { data, error } = await supabase.from("judokas").update(allowed).eq("id", id).select(JUDOKA_COLUMNS).single();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  async remove(id) {
+    await requireUser();
+    const { error } = await supabase.from("judokas").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  }
+};
+
+const host = document.getElementById("tab-me");
+if (host) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.id = "judoDataCard";
+  card.innerHTML = `
+    <h2>Compte et fiches judokas</h2>
+    <div id="dataLogin">
+      <div class="row"><label for="dataEmail">E-mail</label><input type="email" id="dataEmail" autocomplete="username" /></div>
+      <div class="row"><label for="dataPassword">Mot de passe</label><input type="password" id="dataPassword" autocomplete="current-password" /></div>
+      <button id="dataSignInButton" type="button">Se connecter</button>
+    </div>
+    <div id="dataLogged" hidden>
+      <div class="muted" id="dataUser"></div>
+      <button id="dataSignOutButton" type="button" class="secondary">Se déconnecter</button>
+      <h2 style="margin-top:16px">Ajouter un judoka</h2>
+      <div class="grid-2">
+        <div class="row"><label for="jkFirst">Prénom</label><input type="text" id="jkFirst" /></div>
+        <div class="row"><label for="jkLast">Nom</label><input type="text" id="jkLast" /></div>
+        <div class="row"><label for="jkClub">Club</label><input type="text" id="jkClub" /></div>
+        <div class="row"><label for="jkWeight">Catégorie de poids</label><input type="text" id="jkWeight" placeholder="Ex. : -66 kg" /></div>
+        <div class="row"><label for="jkBirth">Année de naissance</label><input type="number" id="jkBirth" /></div>
+        <div class="row"><label for="jkCountry">Pays</label><input type="text" id="jkCountry" /></div>
+      </div>
+      <button id="jkAddButton" type="button">Enregistrer le judoka</button>
+      <h2 style="margin-top:16px">Mes judokas</h2>
+      <div id="jkList" class="muted">Aucune fiche.</div>
+    </div>
+    <div id="dataStatus" class="muted" role="status">Non connecté</div>`;
+  host.appendChild(card);
+
+  const $ = (id) => document.getElementById(id);
+  const status = (msg) => { $("dataStatus").textContent = msg; };
+  let loadToken = 0;
+
+  function render(list) {
+    const box = $("jkList");
+    box.textContent = "";
+    if (!list.length) { box.textContent = "Aucune fiche."; return; }
+    for (const j of list) {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)";
+      const label = document.createElement("span");
+      label.textContent = [j.first_name, j.last_name].filter(Boolean).join(" ") +
+        (j.club ? " — " + j.club : "") + (j.weight_category ? " — " + j.weight_category : "");
+      const edit = document.createElement("button");
+      edit.type = "button"; edit.className = "secondary"; edit.textContent = "Club";
+      edit.onclick = async () => {
+        const club = prompt("Nouveau club :", j.club || "");
+        if (club === null) return;
+        try { status("Enregistrement…"); await judokasRepository.update(j.id, { club }); status("Enregistré"); await reload(); }
+        catch (e) { status("Erreur : " + e.message); }
+      };
+      const del = document.createElement("button");
+      del.type = "button"; del.className = "secondary"; del.textContent = "Supprimer";
+      del.onclick = async () => {
+        if (!confirm("Supprimer cette fiche judoka ? Cette action ne peut pas être annulée.")) return;
+        try { status("Suppression…"); await judokasRepository.remove(j.id); status("Supprimé"); await reload(); }
+        catch (e) { status("Suppression impossible : " + e.message); }
+      };
+      row.append(label, edit, del);
+      box.appendChild(row);
+    }
+  }
+
+  async function reload() {
+    const token = ++loadToken;
+    try {
+      const list = await judokasRepository.list();
+      if (token !== loadToken) return;
+      render(list);
+    } catch (e) { status("Erreur : " + e.message); }
+  }
+
+  function showUser(user) {
+    loadToken++;
+    $("dataLogin").hidden = !!user;
+    $("dataLogged").hidden = !user;
+    if (user) {
+      $("dataUser").textContent = "Connecté : " + user.email;
+      status("Connecté");
+      reload();
+    } else {
+      $("jkList").textContent = "Aucune fiche.";
+      status("Non connecté");
+    }
+  }
+
+  $("dataSignInButton").onclick = async () => {
+    const btn = $("dataSignInButton");
+    btn.disabled = true; status("Connexion en cours…");
+    try { await signIn($("dataEmail").value.trim(), $("dataPassword").value); $("dataPassword").value = ""; }
+    catch (e) { status("Connexion impossible : " + e.message); }
+    finally { btn.disabled = false; }
+  };
+  $("dataSignOutButton").onclick = async () => {
+    try { await signOut(); } catch (e) { status("Erreur : " + e.message); }
+  };
+  $("jkAddButton").onclick = async () => {
+    const first = $("jkFirst").value.trim(), last = $("jkLast").value.trim();
+    if (!first || !last) { status("Prénom et nom obligatoires."); return; }
+    const btn = $("jkAddButton");
+    btn.disabled = true; status("Enregistrement…");
+    try {
+      await judokasRepository.create({
+        first_name: first, last_name: last,
+        club: $("jkClub").value.trim(), weight_category: $("jkWeight").value.trim(),
+        birth_year: $("jkBirth").value, country: $("jkCountry").value.trim()
+      });
+      for (const id of ["jkFirst","jkLast","jkClub","jkWeight","jkBirth","jkCountry"]) $(id).value = "";
+      status("Enregistré");
+      await reload();
+    } catch (e) { status("Échec : " + e.message + " (saisie conservée)"); }
+    finally { btn.disabled = false; }
+  };
+
+  onAuthChange(showUser);
+  getCurrentUser().then(showUser).catch(() => showUser(null));
+}
+</script>
 </body>
 </html>
